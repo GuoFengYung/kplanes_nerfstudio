@@ -360,7 +360,7 @@ class KPlanesDensityField(Field):
             in_dim=self.feature_dim,
             num_layers=num_layers,
             layer_width=hidden_dim,
-            out_dim=1 + self.geo_feat_dim,
+            out_dim=1,
             activation=nn.ReLU(),
             out_activation=None,
             implementation=implementation,
