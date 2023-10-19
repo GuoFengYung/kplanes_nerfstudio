@@ -155,6 +155,7 @@ class KPlanesModelConfig(ModelConfig):
 
     hidden_dim: int = 64
     """Dimension of hidden layers"""
+
     hidden_dim_color: int = 64
     """Dimension of hidden layers for color network"""
 
@@ -189,8 +190,8 @@ class KPlanesModel(Model):
             use_average_appearance_embedding=self.config.use_average_appearance_embedding,
             linear_decoder=self.config.linear_decoder,
             linear_decoder_layers=self.config.linear_decoder_layers,
-            hidden_dim=self.hidden_dim,
-            hidden_dim_color=self.hidden_dim_color,
+            hidden_dim=self.config.hidden_dim,
+            hidden_dim_color=self.config.hidden_dim_color,
         )
 
         self.density_fns = []
