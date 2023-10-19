@@ -206,7 +206,7 @@ class KPlanesField(Field):
                 implementation=implementation,
             )
             in_dim_color = (
-                self.direction_encoding.n_output_dims + self.geo_feat_dim + self.appearance_embedding_dim
+                self.direction_encoding.get_out_dim() + self.geo_feat_dim + self.appearance_embedding_dim
             )
             # self.color_net = tcnn.Network(
             #     n_input_dims=in_dim_color,
@@ -330,6 +330,9 @@ class KPlanesDensityField(Field):
         num_output_coords: int,
         spatial_distortion: Optional[SpatialDistortion] = None,
         linear_decoder: bool = False,
+        implementation: Literal["tcnn", "torch"] = "torch",
+        num_layers: int = 2,
+        hidden_dim: int = 64,
     ):
         super().__init__()
 
@@ -342,16 +345,25 @@ class KPlanesDensityField(Field):
 
         self.grids = KPlanesEncoding(resolution, num_output_coords, init_a=0.1, init_b=0.15)
 
-        self.sigma_net = tcnn.Network(
-            n_input_dims=self.feature_dim,
-            n_output_dims=1,
-            network_config={
-                "otype": "FullyFusedMLP",
-                "activation": "None" if self.linear_decoder else "ReLU",
-                "output_activation": "None",
-                "n_neurons": 64,
-                "n_hidden_layers": 1,
-            },
+        # self.sigma_net = tcnn.Network(
+        #     n_input_dims=self.feature_dim,
+        #     n_output_dims=1,
+        #     network_config={
+        #         "otype": "FullyFusedMLP",
+        #         "activation": "None" if self.linear_decoder else "ReLU",
+        #         "output_activation": "None",
+        #         "n_neurons": 64,
+        #         "n_hidden_layers": 1,
+        #     },
+        # )
+        self.sigma_net = MLP(
+            in_dim=self.feature_dim,
+            num_layers=num_layers,
+            layer_width=hidden_dim,
+            out_dim=1 + self.geo_feat_dim,
+            activation=nn.ReLU(),
+            out_activation=None,
+            implementation=implementation,
         )
 
         CONSOLE.log(f"Initialized KPlaneDensityField. with time-planes={self.has_time_planes} - resolution={resolution}")
