@@ -116,6 +116,8 @@ class KPlanesField(Field):
 
         self.register_buffer("aabb", aabb)
         self.num_images = num_images
+        self.hidden_dim = hidden_dim
+        self.hidden_dim_color = hidden_dim_color
         self.geo_feat_dim = geo_feat_dim
         self.grid_base_resolution = list(grid_base_resolution)
         self.concat_across_scales = concat_across_scales
@@ -175,7 +177,7 @@ class KPlanesField(Field):
             self.sigma_net = MLP(
                 in_dim=self.feature_dim,
                 num_layers=num_layers,
-                layer_width=hidden_dim,
+                layer_width=self.hidden_dim,
                 out_dim=1 + self.geo_feat_dim,
                 activation=nn.ReLU(),
                 out_activation=None,
@@ -220,9 +222,9 @@ class KPlanesField(Field):
             #     },
             # )
             self.color_net = MLP(
-                in_dim=self.direction_encoding.get_out_dim() + self.geo_feat_dim + self.appearance_embedding_dim,
+                in_dim=in_dim_color,
                 num_layers=num_layers_color,
-                layer_width=hidden_dim_color,
+                layer_width=self.hidden_dim_color,
                 out_dim=3,
                 activation=nn.ReLU(),
                 out_activation=nn.Sigmoid(),
