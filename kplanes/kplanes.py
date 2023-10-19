@@ -153,6 +153,11 @@ class KPlanesModelConfig(ModelConfig):
     )
     """Loss coefficients."""
 
+    hidden_dim: int = 64
+    """Dimension of hidden layers"""
+    hidden_dim_color: int = 64
+    """Dimension of hidden layers for color network"""
+
 
 class KPlanesModel(Model):
     config: KPlanesModelConfig
@@ -184,6 +189,8 @@ class KPlanesModel(Model):
             use_average_appearance_embedding=self.config.use_average_appearance_embedding,
             linear_decoder=self.config.linear_decoder,
             linear_decoder_layers=self.config.linear_decoder_layers,
+            hidden_dim=self.hidden_dim,
+            hidden_dim_color=self.hidden_dim_color,
         )
 
         self.density_fns = []

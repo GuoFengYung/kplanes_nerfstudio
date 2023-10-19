@@ -18,13 +18,61 @@ kplanes_method = MethodSpecification(
         method_name="kplanes",
         steps_per_eval_batch=500,
         steps_per_save=2000,
-        steps_per_eval_all_images=30000,
+        steps_per_eval_all_images=3000000,
         max_num_iterations=30001,
         mixed_precision=True,
         pipeline=VanillaPipelineConfig(
             datamanager=VanillaDataManagerConfig(
                 dataparser=BlenderDataParserConfig(),
-                train_num_rays_per_batch=4096,
+                train_num_rays_per_batch=8192,
+                eval_num_rays_per_batch=4096,
+            ),
+            model=KPlanesModelConfig(
+                eval_num_rays_per_chunk=1 << 15,
+                grid_base_resolution=[128, 128, 128],
+                grid_feature_dim=128,
+                multiscale_res=[1, 2, 4],
+                proposal_net_args_list=[
+                    {"num_output_coords": 8, "resolution": [128, 128, 128]},
+                    {"num_output_coords": 8, "resolution": [256, 256, 256]}
+                ],
+                loss_coefficients={
+                    "interlevel": 1.0,
+                    "distortion": 0.01,
+                    "plane_tv": 0.01,
+                    "plane_tv_proposal_net": 0.0001,
+                },
+                background_color="white",
+            ),
+        ),
+        optimizers={
+            "proposal_networks": {
+                "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-12),
+                "scheduler": CosineDecaySchedulerConfig(warm_up_end=512, max_steps=30000),
+            },
+            "fields": {
+                "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-12),
+                "scheduler": CosineDecaySchedulerConfig(warm_up_end=512, max_steps=30000),
+            },
+        },
+        viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
+        vis="viewer",
+    ),
+    description="K-Planes NeRF model for static scenes"
+)
+
+kplanes_method = MethodSpecification(
+    config=TrainerConfig(
+        method_name="kplanes-big",
+        steps_per_eval_batch=500,
+        steps_per_save=2000,
+        steps_per_eval_all_images=3000000,
+        max_num_iterations=30001,
+        mixed_precision=True,
+        pipeline=VanillaPipelineConfig(
+            datamanager=VanillaDataManagerConfig(
+                dataparser=BlenderDataParserConfig(),
+                train_num_rays_per_batch=16384,
                 eval_num_rays_per_batch=4096,
             ),
             model=KPlanesModelConfig(
@@ -32,6 +80,8 @@ kplanes_method = MethodSpecification(
                 grid_base_resolution=[128, 128, 128],
                 grid_feature_dim=32,
                 multiscale_res=[1, 2, 4],
+                num_samples=64,
+                num_proposal_samples=(512, 512),
                 proposal_net_args_list=[
                     {"num_output_coords": 8, "resolution": [128, 128, 128]},
                     {"num_output_coords": 8, "resolution": [256, 256, 256]}
