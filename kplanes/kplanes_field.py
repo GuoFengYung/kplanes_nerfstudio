@@ -16,7 +16,7 @@
 Fields for K-Planes (https://sarafridov.github.io/K-Planes/).
 """
 
-from typing import Dict, Iterable, List, Optional, Tuple, Sequence
+from typing import Dict, Iterable, List, Optional, Tuple, Sequence, Literal
 
 import torch
 from rich.console import Console
@@ -27,10 +27,11 @@ from nerfstudio.cameras.rays import RaySamples, Frustums
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.field_components.activations import trunc_exp
 from nerfstudio.field_components.embedding import Embedding
-from nerfstudio.field_components.encodings import KPlanesEncoding
+from nerfstudio.field_components.encodings import KPlanesEncoding, SHEncoding
 from nerfstudio.field_components.field_heads import FieldHeadNames
 from nerfstudio.field_components.spatial_distortions import SpatialDistortion
 from nerfstudio.fields.base_field import Field, get_normalized_directions
+from nerfstudio.field_components.mlp import MLP
 
 try:
     import tinycudann as tcnn
@@ -104,6 +105,11 @@ class KPlanesField(Field):
         use_average_appearance_embedding: bool = True,
         linear_decoder: bool = False,
         linear_decoder_layers: Optional[int] = None,
+        implementation: Literal["tcnn", "torch"] = "torch",
+        num_layers: int = 2,
+        hidden_dim: int = 64,
+        num_layers_color: int = 3,
+        hidden_dim_color: int = 64,
     ) -> None:
 
         super().__init__()
@@ -166,37 +172,61 @@ class KPlanesField(Field):
                 },
             )
         else:
-            self.sigma_net = tcnn.Network(
-                n_input_dims=self.feature_dim,
-                n_output_dims=self.geo_feat_dim + 1,
-                network_config={
-                    "otype": "FullyFusedMLP",
-                    "activation": "ReLU",
-                    "output_activation": "None",
-                    "n_neurons": 64,
-                    "n_hidden_layers": 1,
-                },
+            self.sigma_net = MLP(
+                in_dim=self.feature_dim,
+                num_layers=num_layers,
+                layer_width=hidden_dim,
+                out_dim=1 + self.geo_feat_dim,
+                activation=nn.ReLU(),
+                out_activation=None,
+                implementation=implementation,
             )
-            self.direction_encoding = tcnn.Encoding(
-                n_input_dims=3,
-                encoding_config={
-                    "otype": "SphericalHarmonics",
-                    "degree": 4,
-                },
+
+            # self.sigma_net = tcnn.Network(
+            #     n_input_dims=self.feature_dim,
+            #     n_output_dims=self.geo_feat_dim + 1,
+            #     network_config={
+            #         "otype": "FullyFusedMLP",
+            #         "activation": "ReLU",
+            #         "output_activation": "None",
+            #         "n_neurons": 64,
+            #         "n_hidden_layers": 1,
+            #     },
+            # )
+            # self.direction_encoding = tcnn.Encoding(
+            #     n_input_dims=3,
+            #     encoding_config={
+            #         "otype": "SphericalHarmonics",
+            #         "degree": 4,
+            #     },
+            # )
+
+            self.direction_encoding = SHEncoding(
+                levels=4,
+                implementation=implementation,
             )
             in_dim_color = (
                 self.direction_encoding.n_output_dims + self.geo_feat_dim + self.appearance_embedding_dim
             )
-            self.color_net = tcnn.Network(
-                n_input_dims=in_dim_color,
-                n_output_dims=3,
-                network_config={
-                    "otype": "FullyFusedMLP",
-                    "activation": "ReLU",
-                    "output_activation": "Sigmoid",
-                    "n_neurons": 64,
-                    "n_hidden_layers": 2,
-                },
+            # self.color_net = tcnn.Network(
+            #     n_input_dims=in_dim_color,
+            #     n_output_dims=3,
+            #     network_config={
+            #         "otype": "FullyFusedMLP",
+            #         "activation": "ReLU",
+            #         "output_activation": "Sigmoid",
+            #         "n_neurons": 64,
+            #         "n_hidden_layers": 2,
+            #     },
+            # )
+            self.color_net = MLP(
+                in_dim=self.direction_encoding.get_out_dim() + self.geo_feat_dim + self.appearance_embedding_dim,
+                num_layers=num_layers_color,
+                layer_width=hidden_dim_color,
+                out_dim=3,
+                activation=nn.ReLU(),
+                out_activation=nn.Sigmoid(),
+                implementation=implementation,
             )
 
     def get_density(self, ray_samples: RaySamples) -> Tuple[TensorType, TensorType]:
