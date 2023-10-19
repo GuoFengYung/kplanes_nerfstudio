@@ -100,11 +100,11 @@ kplanes_method = MethodSpecification(
         optimizers={
             "proposal_networks": {
                 "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-12),
-                "scheduler": CosineDecaySchedulerConfig(warm_up_end=512, max_steps=50000),
+                "scheduler": CosineDecaySchedulerConfig(warm_up_end=512, max_steps=200000),
             },
             "fields": {
                 "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-12),
-                "scheduler": CosineDecaySchedulerConfig(warm_up_end=512, max_steps=50000),
+                "scheduler": CosineDecaySchedulerConfig(warm_up_end=512, max_steps=200000),
             },
         },
         viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
