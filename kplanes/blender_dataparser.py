@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Type
+from typing import Type, Literal
 
 import imageio
 import numpy as np
@@ -48,6 +48,10 @@ class BlenderDataParserConfig(DataParserConfig):
     """How much to scale the camera origins by."""
     alpha_color: str = "white"
     """alpha color of background"""
+    orientation_method: Literal["pca", "up", "vertical", "none"] = "up"
+    """The method to use for orientation."""
+    center_method: Literal["poses", "focus", "none"] = "poses"
+    """The method to use to center the poses."""
 
 
 @dataclass
@@ -128,8 +132,19 @@ class Blender(DataParser):
 
             image_filenames.append(fname)
             poses.append(np.array(frame["transform_matrix"]))
-        poses = np.array(poses).astype(np.float32)
 
+        if "orientation_override" in meta:
+            orientation_method = meta["orientation_override"]
+            CONSOLE.log(f"[yellow] Dataset is overriding orientation method to {orientation_method}")
+        else:
+            orientation_method = self.config.orientation_method
+
+        poses = torch.from_numpy(np.array(poses).astype(np.float32))
+        poses, transform_matrix = camera_utils.auto_orient_and_center_poses(
+            poses,
+            method=orientation_method,
+            center_method=self.config.center_method,
+        )
         # img_0 = imageio.v2.imread(image_filenames[0])
         # image_height, image_width = img_0.shape[:2]
         # camera_angle_x = float(meta["camera_angle_x"])
@@ -168,7 +183,7 @@ class Blender(DataParser):
             distortion_params = torch.stack(distort, dim=0)
 
         cameras = Cameras(
-            camera_to_worlds=camera_to_world,
+            camera_to_worlds=poses[:, :3, :4],
             fx=fx,
             fy=fy,
             cx=cx,
@@ -185,6 +200,7 @@ class Blender(DataParser):
             alpha_color=alpha_color_tensor,
             scene_box=scene_box,
             dataparser_scale=self.scale_factor,
+            dataparser_transform=transform_matrix
         )
 
         return dataparser_outputs
