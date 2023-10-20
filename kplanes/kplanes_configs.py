@@ -64,9 +64,9 @@ kplanes_method = MethodSpecification(
 kplanes_method_big = MethodSpecification(
     config=TrainerConfig(
         method_name="kplanes-big",
-        steps_per_eval_batch=1000,
+        steps_per_eval_batch=500,
         steps_per_save=2000,
-        steps_per_eval_all_images=3000000,
+        steps_per_eval_all_images=300000,
         max_num_iterations=50000,
         mixed_precision=True,
         pipeline=VanillaPipelineConfig(
@@ -78,13 +78,8 @@ kplanes_method_big = MethodSpecification(
             model=KPlanesModelConfig(
                 eval_num_rays_per_chunk=1 << 15,
                 grid_base_resolution=[128, 128, 128],
-                grid_feature_dim=32,
-                multiscale_res=[1, 2, 4],
-                num_samples=64,
-                hidden_dim=256,
-                hidden_dim_color=256,
-                proposal_weights_anneal_max_num_iters=5000,
-                num_proposal_samples=(512, 512),
+                grid_feature_dim=64,
+                multiscale_res=[1, 2, 4, 8],
                 proposal_net_args_list=[
                     {"num_output_coords": 8, "resolution": [128, 128, 128]},
                     {"num_output_coords": 8, "resolution": [256, 256, 256]}
@@ -102,13 +97,10 @@ kplanes_method_big = MethodSpecification(
             "proposal_networks": {
                 "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-12),
                 "scheduler": CosineDecaySchedulerConfig(warm_up_end=512, max_steps=50000),
-                #"scheduler": None,
-                #"scheduler": ExponentialDecaySchedulerConfig(lr_final=1e-4, max_steps=50000),
             },
             "fields": {
                 "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-12),
                 "scheduler": CosineDecaySchedulerConfig(warm_up_end=512, max_steps=50000),
-                #"scheduler": ExponentialDecaySchedulerConfig(lr_final=1e-4, max_steps=50000)
             },
         },
         viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
