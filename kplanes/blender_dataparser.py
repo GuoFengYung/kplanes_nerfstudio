@@ -98,7 +98,7 @@ class Blender(DataParser):
         distort = []
 
         for frame in meta["frames"]:
-            fname = self.data / Path(frame["file_path"].replace("./", ""))
+            fname = self.data / Path(frame["file_path"].replace("./", "") + '.png')
 
             if not fx_fixed:
                 assert "fl_x" in frame, "fx not specified in frame"
