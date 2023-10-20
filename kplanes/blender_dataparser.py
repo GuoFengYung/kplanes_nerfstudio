@@ -152,10 +152,10 @@ class Blender(DataParser):
 
         # cx = image_width / 2.0
         # cy = image_height / 2.0
-        camera_to_world = torch.from_numpy(poses[:, :3])  # camera to world transform
+        # camera_to_world = torch.from_numpy(poses[:, :3])  # camera to world transform
 
         # in x,y,z order
-        camera_to_world[..., 3] *= self.scale_factor
+        poses[:, :3, 3] *= self.scale_factor
         scene_box = SceneBox(aabb=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], dtype=torch.float32))
 
         if "camera_model" in meta:
