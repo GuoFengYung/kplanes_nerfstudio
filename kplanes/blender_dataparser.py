@@ -140,7 +140,7 @@ class Blender(DataParser):
             orientation_method = self.config.orientation_method
 
         poses = torch.from_numpy(np.array(poses).astype(np.float32))
-        poses, transform_matrix = camera_utils.auto_orient_and_center_poses(
+        poses, _ = camera_utils.auto_orient_and_center_poses(
             poses,
             method=orientation_method,
             center_method=self.config.center_method,
@@ -169,7 +169,6 @@ class Blender(DataParser):
         cy = float(meta["cy"]) if cy_fixed else torch.tensor(cy, dtype=torch.float32)
         height = int(meta["h"]) if height_fixed else torch.tensor(height, dtype=torch.int32)
         width = int(meta["w"]) if width_fixed else torch.tensor(width, dtype=torch.int32)
-        print(fx, fy)
         if distort_fixed:
             distortion_params = camera_utils.get_distortion_params(
                 k1=float(meta["k1"]) if "k1" in meta else 0.0,
@@ -200,7 +199,6 @@ class Blender(DataParser):
             alpha_color=alpha_color_tensor,
             scene_box=scene_box,
             dataparser_scale=self.scale_factor,
-            dataparser_transform=transform_matrix
         )
 
         return dataparser_outputs
