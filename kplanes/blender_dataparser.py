@@ -133,20 +133,20 @@ class Blender(DataParser):
             image_filenames.append(fname)
             poses.append(np.array(frame["transform_matrix"]))
 
-        if "orientation_override" in meta:
-            orientation_method = meta["orientation_override"]
-            CONSOLE.log(f"[yellow] Dataset is overriding orientation method to {orientation_method}")
-        else:
-            orientation_method = self.config.orientation_method
+        # if "orientation_override" in meta:
+        #     orientation_method = meta["orientation_override"]
+        #     CONSOLE.log(f"[yellow] Dataset is overriding orientation method to {orientation_method}")
+        # else:
+        #     orientation_method = self.config.orientation_method
 
         poses = np.array(poses).astype(np.float32)
         camera_to_world = torch.from_numpy(poses[:, :3])  # camera to world transform
 
-        camera_to_world, transform_matrix = camera_utils.auto_orient_and_center_poses(
-            camera_to_world,
-            method=orientation_method,
-            center_method=self.config.center_method,
-        )
+        # camera_to_world, transform_matrix = camera_utils.auto_orient_and_center_poses(
+        #     camera_to_world,
+        #     method=orientation_method,
+        #     center_method=self.config.center_method,
+        # )
 
         # in x,y,z order
         camera_to_world[..., 3] *= self.scale_factor
