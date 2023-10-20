@@ -398,7 +398,7 @@ class KPlanesModel(Model):
         metrics_dict = {
             "psnr": float(self.psnr(image, rgb).item()),
             "ssim": float(self.ssim(image, rgb)),
-            "lpips": float(self.lpips(image, rgb))
+         #   "lpips": float(self.lpips(image, rgb))
         }
         images_dict = {"img": combined_rgb, "accumulation": combined_acc, "depth": combined_depth}
 

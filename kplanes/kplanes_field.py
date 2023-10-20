@@ -117,6 +117,8 @@ class KPlanesField(Field):
         self.register_buffer("aabb", aabb)
         self.num_images = num_images
         self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.num_layers_color = num_layers_color
         self.hidden_dim_color = hidden_dim_color
         self.geo_feat_dim = geo_feat_dim
         self.grid_base_resolution = list(grid_base_resolution)
@@ -176,7 +178,7 @@ class KPlanesField(Field):
         else:
             self.sigma_net = MLP(
                 in_dim=self.feature_dim,
-                num_layers=num_layers,
+                num_layers=self.num_layers,
                 layer_width=self.hidden_dim,
                 out_dim=1 + self.geo_feat_dim,
                 activation=nn.ReLU(),
@@ -223,7 +225,7 @@ class KPlanesField(Field):
             # )
             self.color_net = MLP(
                 in_dim=in_dim_color,
-                num_layers=num_layers_color,
+                num_layers=self.num_layers_color,
                 layer_width=self.hidden_dim_color,
                 out_dim=3,
                 activation=nn.ReLU(),

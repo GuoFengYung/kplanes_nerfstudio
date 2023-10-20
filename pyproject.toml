@@ -17,8 +17,9 @@ dependencies=[
 dynamic = ["version"]
 
 [project.entry-points."nerfstudio.method_configs"]
-kplanes = "kplanes.kplanes_configs:kplanes_method"
+kplanes_normal = "kplanes.kplanes_configs:kplanes_method_normal"
 kplanes_dynamic = "kplanes.kplanes_configs:kplanes_dynamic_method"
+kplanes_big = "kplanes.kplanes_configs:kplanes_method_big"
 
 [tool.setuptools]
 include-package-data = true
