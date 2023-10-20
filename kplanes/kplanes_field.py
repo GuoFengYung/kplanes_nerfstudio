@@ -186,6 +186,22 @@ class KPlanesField(Field):
                 implementation=implementation,
             )
 
+            self.direction_encoding = SHEncoding(
+                levels=4,
+                implementation=implementation,
+            )
+            in_dim_color = (
+                self.direction_encoding.get_out_dim() + self.geo_feat_dim + self.appearance_embedding_dim
+            )
+            self.color_net = MLP(
+                in_dim=in_dim_color,
+                num_layers=self.num_layers_color,
+                layer_width=self.hidden_dim_color,
+                out_dim=3,
+                activation=nn.ReLU(),
+                out_activation=nn.Sigmoid(),
+                implementation=implementation,
+            )
             # self.sigma_net = tcnn.Network(
             #     n_input_dims=self.feature_dim,
             #     n_output_dims=self.geo_feat_dim + 1,
@@ -204,14 +220,6 @@ class KPlanesField(Field):
             #         "degree": 4,
             #     },
             # )
-
-            self.direction_encoding = SHEncoding(
-                levels=4,
-                implementation=implementation,
-            )
-            in_dim_color = (
-                self.direction_encoding.get_out_dim() + self.geo_feat_dim + self.appearance_embedding_dim
-            )
             # self.color_net = tcnn.Network(
             #     n_input_dims=in_dim_color,
             #     n_output_dims=3,
@@ -223,15 +231,6 @@ class KPlanesField(Field):
             #         "n_hidden_layers": 2,
             #     },
             # )
-            self.color_net = MLP(
-                in_dim=in_dim_color,
-                num_layers=self.num_layers_color,
-                layer_width=self.hidden_dim_color,
-                out_dim=3,
-                activation=nn.ReLU(),
-                out_activation=nn.Sigmoid(),
-                implementation=implementation,
-            )
 
     def get_density(self, ray_samples: RaySamples) -> Tuple[TensorType, TensorType]:
         """Computes and returns the densities."""
