@@ -139,23 +139,17 @@ class Blender(DataParser):
         else:
             orientation_method = self.config.orientation_method
 
-        poses = torch.from_numpy(np.array(poses).astype(np.float32))
-        poses, _ = camera_utils.auto_orient_and_center_poses(
-            poses,
+        poses = np.array(poses).astype(np.float32)
+        camera_to_world = torch.from_numpy(poses[:, :3])  # camera to world transform
+
+        camera_to_world, transform_matrix = camera_utils.auto_orient_and_center_poses(
+            camera_to_world,
             method=orientation_method,
             center_method=self.config.center_method,
         )
-        # img_0 = imageio.v2.imread(image_filenames[0])
-        # image_height, image_width = img_0.shape[:2]
-        # camera_angle_x = float(meta["camera_angle_x"])
-        # focal_length = 0.5 * image_width / np.tan(0.5 * camera_angle_x)
-
-        # cx = image_width / 2.0
-        # cy = image_height / 2.0
-        # camera_to_world = torch.from_numpy(poses[:, :3])  # camera to world transform
 
         # in x,y,z order
-        poses[:, :3, 3] *= self.scale_factor
+        camera_to_world[..., 3] *= self.scale_factor
         scene_box = SceneBox(aabb=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], dtype=torch.float32))
 
         if "camera_model" in meta:
@@ -169,6 +163,7 @@ class Blender(DataParser):
         cy = float(meta["cy"]) if cy_fixed else torch.tensor(cy, dtype=torch.float32)
         height = int(meta["h"]) if height_fixed else torch.tensor(height, dtype=torch.int32)
         width = int(meta["w"]) if width_fixed else torch.tensor(width, dtype=torch.int32)
+        print(fx, fy)
         if distort_fixed:
             distortion_params = camera_utils.get_distortion_params(
                 k1=float(meta["k1"]) if "k1" in meta else 0.0,
@@ -182,7 +177,7 @@ class Blender(DataParser):
             distortion_params = torch.stack(distort, dim=0)
 
         cameras = Cameras(
-            camera_to_worlds=poses[:, :3, :4],
+            camera_to_worlds=camera_to_world,
             fx=fx,
             fy=fy,
             cx=cx,
