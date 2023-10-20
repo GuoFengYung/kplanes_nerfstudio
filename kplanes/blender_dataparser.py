@@ -17,13 +17,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Type, Literal
-
+from typing import Type
+from nerfstudio.cameras import camera_utils
 import imageio
 import numpy as np
 import torch
 
-from nerfstudio.cameras.cameras import Cameras, CameraType, CAMERA_MODEL_TO_TYPE
+from nerfstudio.cameras.cameras import Cameras, CameraType
 from nerfstudio.data.dataparsers.base_dataparser import (
     DataParser,
     DataParserConfig,
@@ -32,8 +32,6 @@ from nerfstudio.data.dataparsers.base_dataparser import (
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.utils.colors import get_color
 from nerfstudio.utils.io import load_from_json
-from nerfstudio.cameras import camera_utils
-from nerfstudio.utils.rich_utils import CONSOLE
 
 
 @dataclass
@@ -48,10 +46,6 @@ class BlenderDataParserConfig(DataParserConfig):
     """How much to scale the camera origins by."""
     alpha_color: str = "white"
     """alpha color of background"""
-    orientation_method: Literal["pca", "up", "vertical", "none"] = "up"
-    """The method to use for orientation."""
-    center_method: Literal["poses", "focus", "none"] = "poses"
-    """The method to use to center the poses."""
 
 
 @dataclass
@@ -77,6 +71,13 @@ class Blender(DataParser):
         meta = load_from_json(self.data / f"transforms_{split}.json")
         image_filenames = []
         poses = []
+        fx = []
+        fy = []
+        cx = []
+        cy = []
+        height = []
+        width = []
+        distort = []
 
         fx_fixed = "fl_x" in meta
         fy_fixed = "fl_y" in meta
@@ -89,17 +90,10 @@ class Blender(DataParser):
             if distort_key in meta:
                 distort_fixed = True
                 break
-        fx = []
-        fy = []
-        cx = []
-        cy = []
-        height = []
-        width = []
-        distort = []
 
         for frame in meta["frames"]:
-            fname = self.data / Path(frame["file_path"].replace("./", "") + '.png')
-
+            # fname = self.data / Path(frame["file_path"].replace("./", "") + ".png")
+            fname = self.data / Path(frame["file_path"].replace("./", ""))
             if not fx_fixed:
                 assert "fl_x" in frame, "fx not specified in frame"
                 fx.append(float(frame["fl_x"]))
@@ -132,38 +126,13 @@ class Blender(DataParser):
 
             image_filenames.append(fname)
             poses.append(np.array(frame["transform_matrix"]))
-
-        # if "orientation_override" in meta:
-        #     orientation_method = meta["orientation_override"]
-        #     CONSOLE.log(f"[yellow] Dataset is overriding orientation method to {orientation_method}")
-        # else:
-        #     orientation_method = self.config.orientation_method
-
         poses = np.array(poses).astype(np.float32)
-        camera_to_world = torch.from_numpy(poses[:, :3])  # camera to world transform
 
-        # camera_to_world, transform_matrix = camera_utils.auto_orient_and_center_poses(
-        #     camera_to_world,
-        #     method=orientation_method,
-        #     center_method=self.config.center_method,
-        # )
+        img_0 = imageio.v2.imread(image_filenames[0])
+        image_height, image_width = img_0.shape[:2]
+        camera_angle_x = float(meta["camera_angle_x"])
+        focal_length = 0.5 * image_width / np.tan(0.5 * camera_angle_x)
 
-        # in x,y,z order
-        camera_to_world[..., 3] *= self.scale_factor
-        scene_box = SceneBox(aabb=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], dtype=torch.float32))
-
-        if "camera_model" in meta:
-            camera_type = CAMERA_MODEL_TO_TYPE[meta["camera_model"]]
-        else:
-            camera_type = CameraType.PERSPECTIVE
-
-        fx = float(meta["fl_x"]) if fx_fixed else torch.tensor(fx, dtype=torch.float32)
-        fy = float(meta["fl_y"]) if fy_fixed else torch.tensor(fy, dtype=torch.float32)
-        cx = float(meta["cx"]) if cx_fixed else torch.tensor(cx, dtype=torch.float32)
-        cy = float(meta["cy"]) if cy_fixed else torch.tensor(cy, dtype=torch.float32)
-        height = int(meta["h"]) if height_fixed else torch.tensor(height, dtype=torch.int32)
-        width = int(meta["w"]) if width_fixed else torch.tensor(width, dtype=torch.int32)
-        print(fx, fy)
         if distort_fixed:
             distortion_params = camera_utils.get_distortion_params(
                 k1=float(meta["k1"]) if "k1" in meta else 0.0,
@@ -174,7 +143,22 @@ class Blender(DataParser):
                 p2=float(meta["p2"]) if "p2" in meta else 0.0,
             )
         else:
-            distortion_params = torch.stack(distort, dim=0)
+            distortion_params = torch.stack(distort, dim=0)[idx_tensor]
+
+        # cx = image_width / 2.0
+        # cy = image_height / 2.0
+        camera_to_world = torch.from_numpy(poses[:, :3])  # camera to world transform
+
+        # in x,y,z order
+        camera_to_world[..., 3] *= self.scale_factor
+        scene_box = SceneBox(aabb=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], dtype=torch.float32))
+
+        fx = float(meta["fl_x"]) if fx_fixed else torch.tensor(fx, dtype=torch.float32)[idx_tensor]
+        fy = float(meta["fl_y"]) if fy_fixed else torch.tensor(fy, dtype=torch.float32)[idx_tensor]
+        cx = float(meta["cx"]) if cx_fixed else torch.tensor(cx, dtype=torch.float32)[idx_tensor]
+        cy = float(meta["cy"]) if cy_fixed else torch.tensor(cy, dtype=torch.float32)[idx_tensor]
+        height = int(meta["h"]) if height_fixed else torch.tensor(height, dtype=torch.int32)[idx_tensor]
+        width = int(meta["w"]) if width_fixed else torch.tensor(width, dtype=torch.int32)[idx_tensor]
 
         cameras = Cameras(
             camera_to_worlds=camera_to_world,
@@ -182,10 +166,10 @@ class Blender(DataParser):
             fy=fy,
             cx=cx,
             cy=cy,
-            distortion_params=distortion_params,
             height=height,
             width=width,
-            camera_type=camera_type,
+            distortion_params=distortion_params,
+            camera_type=CameraType.PERSPECTIVE,
         )
 
         dataparser_outputs = DataparserOutputs(
