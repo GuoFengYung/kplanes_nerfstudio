@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Type
+from typing import Type, Literal
 
 import imageio
 import numpy as np
@@ -48,7 +48,14 @@ class BlenderDataParserConfig(DataParserConfig):
     """How much to scale the camera origins by."""
     alpha_color: str = "white"
     """alpha color of background"""
-
+    orientation_method: Literal["pca", "up", "vertical", "none"] = "up"
+    """The method to use for orientation."""
+    center_method: Literal["poses", "focus", "none"] = "poses"
+    """The method to use to center the poses."""
+    auto_scale_poses: bool = False
+    """Whether to automatically scale the poses to fit in +/- 1 bounding box."""
+    scene_scale: float = 2.0
+    """How much to scale the region of interest by."""
 
 @dataclass
 class Blender(DataParser):
@@ -128,8 +135,26 @@ class Blender(DataParser):
 
             image_filenames.append(fname)
             poses.append(np.array(frame["transform_matrix"]))
-        poses = np.array(poses).astype(np.float32)
+        # poses = np.array(poses).astype(np.float32)
+        if "orientation_override" in meta:
+            orientation_method = meta["orientation_override"]
+            CONSOLE.log(f"[yellow] Dataset is overriding orientation method to {orientation_method}")
+        else:
+            orientation_method = self.config.orientation_method
 
+        poses = torch.from_numpy(np.array(poses).astype(np.float32))
+        poses, transform_matrix = camera_utils.auto_orient_and_center_poses(
+            poses,
+            method=orientation_method,
+            center_method=self.config.center_method,
+        )
+
+        # Scale poses
+        scale_factor = 1.0
+        if self.config.auto_scale_poses:
+            scale_factor /= float(torch.max(torch.abs(poses[:, :3, 3])))
+        scale_factor *= self.config.scale_factor
+        poses[:, :3, 3] *= scale_factor
         # img_0 = imageio.v2.imread(image_filenames[0])
         # image_height, image_width = img_0.shape[:2]
         # camera_angle_x = float(meta["camera_angle_x"])
@@ -137,11 +162,17 @@ class Blender(DataParser):
 
         # cx = image_width / 2.0
         # cy = image_height / 2.0
-        camera_to_world = torch.from_numpy(poses[:, :3])  # camera to world transform
+        # camera_to_world = torch.from_numpy(poses[:, :3])  # camera to world transform
 
         # in x,y,z order
-        camera_to_world[..., 3] *= self.scale_factor
-        scene_box = SceneBox(aabb=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], dtype=torch.float32))
+        # camera_to_world[..., 3] *= self.scale_factor
+        # scene_box = SceneBox(aabb=torch.tensor([[-2.0, -2.0, -2.0], [2.0, 2.0, 2.0]], dtype=torch.float32))
+        aabb_scale = self.config.scene_scale
+        scene_box = SceneBox(
+            aabb=torch.tensor(
+                [[-aabb_scale, -aabb_scale, -aabb_scale], [aabb_scale, aabb_scale, aabb_scale]], dtype=torch.float32
+            )
+        )
 
         if "camera_model" in meta:
             camera_type = CAMERA_MODEL_TO_TYPE[meta["camera_model"]]
@@ -168,7 +199,7 @@ class Blender(DataParser):
             distortion_params = torch.stack(distort, dim=0)
 
         cameras = Cameras(
-            camera_to_worlds=camera_to_world,
+            camera_to_worlds=poses[:, :3, :4],
             fx=fx,
             fy=fy,
             cx=cx,
